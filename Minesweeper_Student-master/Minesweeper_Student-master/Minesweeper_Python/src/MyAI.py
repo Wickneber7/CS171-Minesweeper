@@ -48,16 +48,29 @@ class MyAI( AI ):
                 # maybe use this instead of explored since, if it's in this, then we can
                 # assume that it has been explored and doesn't need to be readded to the
                 # move queue -- think about this more, seems wrong
+                # This seems unnecessary if we drain all of the moves before doing any thinking
+
                 
-                self.board = array()
+                self.board = list()
                 # figure out the board storage, since only reading and writing to board,
                 # list vs array might be negligible in terms of speed
 
-                self.eBoard = array()
+                self.eBoard = list()
                 # this board will store the effective number of bombs next to a tile?
                 # can this just be the same as the regular board attribute?
 
-                
+                self.uncoveredBoard = list()
+                # this board should keep track of the number of neighbors a given cell has
+                # uncovered/known dangerous next to it.  This should be useful in determining
+                # which cells should be processed/thought about first
+                # Maybe this should be a priority queue or something, just use a tuple for this?
+
+                self.think_queue = list()
+                # probably try to use python's builtin pq or heap, if not it's not too hard
+                # to make a heap
+                # If we have a think queue/ordering of cells that might be easy to solve
+                # we should empty out the move_queue first, so that we have more perfect information
+
 
                 self.move_queue = list()
                 # this list should only have squares that are known to be safe, will be
@@ -117,6 +130,12 @@ class MyAI( AI ):
 		if ( self.remSquares - self.remMines == 0):
                         return Action(AI.Action.LEAVE)
                 if ( number == 0):
+                        '''
+                        If a cell returns 0, then the 8 adjacent squares are safe.  These
+                        squares should be added to the move_queue if they have not been
+                        explored.  Should then update the neighborsBoard and the regular board
+                        '''
+                        self.board[self.lastX][self.lastY] = 0
                         for i in range(self.lastX-1, self.lastX+2,1):
                                 for j in range(self.lastY-1, self.lastY+2,1):
                                         if ( (i > self.row or i < 0) or (j > self.col or j < 0) ):
@@ -125,6 +144,8 @@ class MyAI( AI ):
                                                 self.safe.add((i,j))
                                                 self.move_queue.append((i,j)) # should drop this or the set
                                                 self.move_set.add((i,j))
+
+
 
                 if ( len(self.move_set) > 0):
                         self.lastX, self.lastY = self.move_set.pop()
