@@ -14,7 +14,7 @@
 
 from AI import AI
 from Action import Action
-
+import random
 # import random # do we need to import these ourselves
 import time
 
@@ -99,7 +99,6 @@ class MyAI(AI):
         # be put into this set pretty much right away.  Tiles that become 0, should be put into
         # this as soon as possible?
 
-
         # this list should only have squares that are known to be safe, will be
         # returned until empty.  Logic should put in squares until can't solve
         # anymore and then drain this queue/list -- maybe shouldn't drain right
@@ -124,12 +123,12 @@ class MyAI(AI):
 
         # Should this even be here?  Trying to remember why this was here, think it had something
         # to do with the first move being problematic
-        #self.board[self.lastX][self.lastY] = 0
-        #self.explored.add((self.lastX, self.lastY))
+        # self.board[self.lastX][self.lastY] = 0
+        # self.explored.add((self.lastX, self.lastY))
 
-        #self.remSquares -= 1 # This was causing problems, I think I was double adding
+        # self.remSquares -= 1 # This was causing problems, I think I was double adding
 
-        #self.effectiveBoard[self.lastX][self.lastY] = 0
+        # self.effectiveBoard[self.lastX][self.lastY] = 0
         # if ( len(self.move_set) > 0):
         self.flag_set = set()
 
@@ -190,7 +189,6 @@ class MyAI(AI):
         ########################################################################
 
         # Update our board, add the cell to explored, and decrement number of cells
-        print(self.explored)
 
         self.board[self.lastX][self.lastY] = number
         self.explored.add((self.lastX, self.lastY))
@@ -201,20 +199,12 @@ class MyAI(AI):
         else:
             self.effectiveBoard[self.lastX][self.lastY] += number
 
-        print(self.lastX,self.lastY)
-
         # for the neighbors of returned cell, increment the number uncovered cells nearby
         # Need to change this to decrement if decide to keep track of cells not uncovered
 
         for i, j in self._generateSurrounding(self.lastX, self.lastY):
             self.uncoveredBoard[i][j] += 1
             self.remainingBoard[i][j] -= 1
-
-        print("Remaining Board")
-        for i in range(self.row - 1, -1, -1):
-            for j in range(self.col):
-                print(str(self.remainingBoard[j][i]) + "\t", end='')
-            print()
 
         # Need to adjust the new square's effective mine number, since may already
         # know where all of the neighboring mines are when a square is uncovered
@@ -230,7 +220,7 @@ class MyAI(AI):
             explored.  Should then update the neighborsBoard and the regular board
             '''
             self.board[self.lastX][self.lastY] = 0
-            self.expanded_set.add((self.lastX,self.lastY))
+            self.expanded_set.add((self.lastX, self.lastY))
             for i in range(self.lastX - 1, self.lastX + 2, 1):
                 for j in range(self.lastY - 1, self.lastY + 2, 1):
                     if (i >= self.row or i < 0) or (j >= self.col or j < 0):
@@ -241,7 +231,6 @@ class MyAI(AI):
 
         if len(self.move_set) > 0:
             self.lastX, self.lastY = self.move_set.pop()
-            print(self.lastX, self.lastY)
             return Action(AI.Action.UNCOVER, self.lastX,
                           self.lastY)  # adjust this to be the correct action type
             # else # don't need the else I think
@@ -255,35 +244,21 @@ class MyAI(AI):
             # How do we know which of the squares are not in use?
             # Maybe store the relative direction of squares that are available
             # Would that even give significant speed up over just scanning
-        print("Effective Board")
-        for i in range(self.row - 1, -1, -1):
-            for j in range(self.col):
-                print(str(self.effectiveBoard[j][i]) + "\t", end='')
-            print()
-        print("Remaining Board")
-        for i in range(self.row - 1, -1, -1):
-            for j in range(self.col):
-                print(str(self.remainingBoard[j][i]) + "\t", end='')
-            print()
 
         for i in range(self.row):
             for j in range(self.col):
                 # Scan every board slot, if the remaining covered squares = the effective mines
                 # then the remaining squares must be mines
                 if self.remainingBoard[i][j] == self.effectiveBoard[i][j] and self.effectiveBoard != 0:
-                    print("scanning for", i, j)
                     scan_list = self._generateSurrounding(i, j)
                     # Find out what the remaining squares actually are, (will have board value -1)
 
                     for r, c in scan_list:
-                        if self.board[r][c] == -1 and (r,c) not in self.mines:
+                        if self.board[r][c] == -1 and (r, c) not in self.mines:
                             self.mines.add((r, c))
                             update_list = self._generateSurrounding(r, c)
-
                             # This might not be working as intended
-                            print(update_list)
                             for n, m in update_list:
-                                #print("Before", self.remainingBoard[n][m])
                                 if self.effectiveBoard[n][m] is False:
                                     self.effectiveBoard[n][m] = 0
                                 self.effectiveBoard[n][m] -= 1
@@ -291,39 +266,30 @@ class MyAI(AI):
                                 self.uncoveredBoard[n][m] += 1
 
                                 # Maybe I can just move the move set addition and remove this
-                                if self.effectiveBoard[n][m] == 0 and (n,m) not in self.expanded_set:
-                                    print("adding to future expansion")
-                                    self.future_expansion.add((n,m))
-
-                                #print("After",self.remainingBoard[n][m])
-
-        print("Mine set")
-        print(self.mines)
+                                # Instead of having the while loop down below, maybe just do that work here
+                                # or does this prevent double adding/double work
+                                if self.effectiveBoard[n][m] == 0 and (n, m) not in self.expanded_set:
+                                    self.future_expansion.add((n, m))
 
         # Thinking about it, not sure if this will actually find anything new to expand
         for i in range(self.row):
             for j in range(self.col):
-                #print(i,j,self.effectiveBoard[i][j] is not False)
-                #print(i,j,self.effectiveBoard[i][j] == 0)
-                #print(self.effectiveBoard[i][j])
                 if self.effectiveBoard[i][j] is not False and self.effectiveBoard[i][j] == 0:
-                    #print("checking if", i, j, "in explored set")
                     if (i, j) not in self.explored:
                         self.move_set.add((i, j))
-        print("Move set")
-        print(self.move_set)
+
         while len(self.future_expansion) != 0:
-            r,c = self.future_expansion.pop()
-            scan_list = self._generateSurrounding(r,c)
-            for i,j in scan_list:
-                if (i,j) not in self.explored and (i,j) not in self.mines:
+            r, c = self.future_expansion.pop()
+            scan_list = self._generateSurrounding(r, c)
+            for i, j in scan_list:
+                if (i, j) not in self.explored and (i, j) not in self.mines:
+                    self.move_set.add((i, j))
 
+        # We should also be able to do this check before/earlier and not have to make a loop for it
+        for i in range(self.row):
+            for j in range(self.col):
+                if self.remainingBoard[i][j] == 0 and ((i,j) not in self.mines and (i,j) not in self.explored):
                     self.move_set.add((i,j))
-
-
-
-        print("Move set")
-        print(self.move_set)
 
         if len(self.move_set) > 0:
             self.lastX, self.lastY = self.move_set.pop()
@@ -332,23 +298,14 @@ class MyAI(AI):
             self.lastX, self.lastY = self.flag_set.pop()
             return Action(AI.Action.FLAG, self.lastX, self.lastY)
         else:
-            print("Failed to find a move")
-            print("Board State")
-            for i in range(self.row - 1, -1, -1):
-                for j in range(self.col):
-                    print(str(self.board[j][i]) + "\t", end='')
-                print()
-            print("Effective Board")
-            for i in range(self.row - 1, -1, -1):
-                for j in range(self.col):
-                    print(str(self.effectiveBoard[j][i]) + "\t", end='')
-                print()
-            print("Remaining Board")
-            for i in range(self.row - 1, -1, -1):
-                for j in range(self.col):
-                    print(str(self.remainingBoard[j][i]) + "\t", end='')
-                print()
-            return None
+            self.lastX = random.randint(0, self.row)
+            self.lastY = random.randint(0, self.col)
+            while (self.lastX, self.lastY) not in self.mines and (self.lastX, self.lastY) not in self.explored:
+                self.lastX = random.randint(0, self.row)
+                self.lastY = random.randint(0, self.col)
+
+            return Action(AI.Action.UNCOVER, self.lastX,
+                          self.lastY)
             # Guessing time
 
     ########################################################################
