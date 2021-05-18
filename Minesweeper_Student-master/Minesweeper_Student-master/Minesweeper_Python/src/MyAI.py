@@ -217,6 +217,15 @@ class MyAI(AI):
         # but also allows quick effective + real once the square is uncovered
         if self.remSquares - self.remMines == 0:
             return Action(AI.Action.LEAVE)
+
+        # This feels a little hacky but maybe it's alright
+        if self.remMines == 0:
+            for i in range(self.row):
+                for j in range(self.col):
+                    if (i,j) not in self.explored and (i,j) not in self.mines:
+                        self.move_set.add((i,j))
+
+
         if number == 0:
             '''
             If a cell returns 0, then the 8 adjacent squares are safe.  These
@@ -260,6 +269,7 @@ class MyAI(AI):
                     for r, c in scan_list:
                         if self.board[r][c] == -1 and (r, c) not in self.mines:
                             self.mines.add((r, c))
+                            self.remMines -= 1
                             update_list = self._generateSurrounding(r, c)
                             # This might not be working as intended
                             for n, m in update_list:
@@ -291,6 +301,7 @@ class MyAI(AI):
                     self.move_set.add((i, j))
 
         # We should also be able to do this check before/earlier and not have to make a loop for it
+        # This should probably go earlier, but it doesn't really matter
         for i in range(self.row):
             for j in range(self.col):
                 if self.remainingBoard[i][j] == 0 and ((i, j) not in self.mines and (i, j) not in self.explored):
@@ -310,6 +321,11 @@ class MyAI(AI):
                 self.lastY = random.randint(0, self.col)
 
             self.getCSPAction()
+            if len(self.move_set) > 0:
+                #print(self.move_set)
+                self.lastX, self.lastY = self.move_set.pop()
+                return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
+
             return Action(AI.Action.UNCOVER, self.lastX,
                           self.lastY)
             # return self.getCSPAction()
@@ -506,10 +522,11 @@ class MyAI(AI):
                             print("Adding first in frontier, should be a rare occurrence to see multiple of these", r,
                                   c)
                             blueExpand.add((r, c))
-                        print(blueSets)
-
+                        #print(blueSets)
+                        first = True
                         # This while loop might not be working as intended if there are things being added
-                        while len(blueExpand) > 0:
+                        while len(blueExpand) > 0: # Maybe add clause " and (r,c) not in expandedBlue"
+                            #print("Entered the while loop")
                             expR, expC = blueExpand.pop()
                             blueSets[-1].add((expR, expC))
                             expandedBlue.add((expR, expC))
@@ -581,8 +598,8 @@ class MyAI(AI):
             frontierMapping[i] = set(self._generateSurrounding(r,c)).intersection(expandedBlue)
 
 
-        print("frontierMapping")
-        print(frontierMapping)
+        #print("frontierMapping")
+        #print(frontierMapping)
 
         t = 0
         for frontier in blueSets:
@@ -590,22 +607,14 @@ class MyAI(AI):
 
             maxNumMines = min(self.remMines - (len(blueSets) - 1), len(frontier))
             print("maxNumMines",maxNumMines)
+            numConsistent = 0
             for i in range(1, maxNumMines+1):
                 print(i)
                 worlds = combinations(frontier, i)
                 while True:
                     try:
                         model = next(worlds)
-                        print(model)
-
-
-                        # This is problematic
-
-                        #for key, value in blueMap.items():
-                        #    r,c =key
-                        #    if self.effectiveBoard[r][c] == len(frontierMapping[key].intersection(set(model))) and (key,value) not in model:
-                        #        blueMap[key] += 1
-
+                        #print(model)
                         '''
                         At this point, the world has been generated so what needs to be done?
                         Verify the model is consistent -> for each value in the red set, check that the intersection
@@ -620,6 +629,7 @@ class MyAI(AI):
                                 break
 
                         if consistent is True:
+                            numConsistent += 1
                             for key in model:
                                 blueMap[key] += 1
                     except StopIteration:
@@ -630,9 +640,22 @@ class MyAI(AI):
                 if value == 0:
                     print("Need to add move", key, "to move set")
                     '''
-                    Do the proper upkeep stuff here
+                    Do the proper upkeep stuff here which is what -> nothing I think
+                    since we decrement remaining and increment uncovered at the start of get action
                     '''
-
+                    self.move_set.add(key)
+                elif value == numConsistent:
+                    print("Need to add tile", key, "to mines set")
+                    self.mines.add(key)
+                    self.remMines -= 1
+                    nr, nc = key
+                    update_list = self._generateSurrounding(nr, nc)
+                    for n, m in update_list:
+                        if self.effectiveBoard[n][m] is False:
+                            self.effectiveBoard[n][m] = 0
+                        self.effectiveBoard[n][m] -= 1
+                        self.remainingBoard[n][m] -= 1
+                        self.uncoveredBoard[n][m] += 1
                     # self.move_set.add(key)
             t += 1
             print(blueMap)
