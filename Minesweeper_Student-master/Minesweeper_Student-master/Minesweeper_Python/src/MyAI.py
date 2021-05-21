@@ -224,8 +224,8 @@ class MyAI(AI):
         self.remSquares -= 1
 
 
-        print("moves", self.move_set)
-        print("mines", self.mines, "numMines=", len(self.mines))
+        #print("moves", self.move_set)
+        #print("mines", self.mines, "numMines=", len(self.mines))
         #print("remaining mines should equal", self.totalMines, "-", len(self.mines), "=", self.remMines)
         #print("Remaining squares=", self.remSquares)
 
@@ -383,6 +383,12 @@ class MyAI(AI):
 
 
             #print("Had to guess")
+
+            '''
+            if num frontiers == num mines, then we can guess every tile thats not in the frontiers since there 
+            must be at least 1 mine in each frontier
+            
+            '''
             if len(self.mines) > 0:
                 print(self.mines, "=============")
 
@@ -621,30 +627,48 @@ class MyAI(AI):
                         break
 
             #print("Numbere of consistent worlds =", numConsistent)
-            for key, value in blueMap.items():
-                if value == 0:
-                    #print("Need to add move", key, "to move set")
+            notAllConsistentCheck = False
+            for value in blueMap.values():
+                if value != 0:
+                    notAllConsistentCheck = True
                     '''
-                    Do the proper upkeep stuff here which is what -> nothing I think
-                    since we decrement remaining and increment uncovered at the start of get action
+                    Probably need some additional behavior here
                     '''
-                    self.move_set.add(key)
-                elif value == numConsistent:
-                    #print("Need to add tile", key, "to mines set")
-                    foundMine = True
-                    self.mines.add(key)
-                    self.remMines -= 1
-                    nr, nc = key
-                    update_list = self._generateSurrounding(nr, nc)
-                    for n, m in update_list:
-                        if self.effectiveBoard[n][m] is False:
-                            self.effectiveBoard[n][m] = 0
-                        self.effectiveBoard[n][m] -= 1
-                        self.remainingBoard[n][m] -= 1
-                        self.uncoveredBoard[n][m] += 1
-                        # self.move_set.add(key)
-                        if self.effectiveBoard[n][m] == 0 and (n, m) not in self.expanded_set:
-                            self.future_expansion.add((n, m))
+
+                    break
+
+            if notAllConsistentCheck:
+                for key, value in blueMap.items():
+                    if value == 0:
+                        '''
+                        What happens if "every" world is consistent, ie have a board that looks like
+                        ? ? ?
+                        X 5 X
+                        X 4 X
+                        
+                        Then it's just a pure chance guess, so how do we check if every k/v is consistent or not
+                        Should in theory just be a small number of things, just do something like looping through the
+                        values
+                        '''
+
+
+                        self.move_set.add(key)
+                    elif value == numConsistent:
+                        #print("Need to add tile", key, "to mines set")
+                        foundMine = True
+                        self.mines.add(key)
+                        self.remMines -= 1
+                        nr, nc = key
+                        update_list = self._generateSurrounding(nr, nc)
+                        for n, m in update_list:
+                            if self.effectiveBoard[n][m] is False:
+                                self.effectiveBoard[n][m] = 0
+                            self.effectiveBoard[n][m] -= 1
+                            self.remainingBoard[n][m] -= 1
+                            self.uncoveredBoard[n][m] += 1
+                            # self.move_set.add(key)
+                            if self.effectiveBoard[n][m] == 0 and (n, m) not in self.expanded_set:
+                                self.future_expansion.add((n, m))
 
             while len(self.future_expansion) != 0:
                 r, c = self.future_expansion.pop()
