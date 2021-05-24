@@ -390,12 +390,12 @@ class MyAI(AI):
             
             '''
             if len(self.mines) > 0:
-                print(self.mines, "=============")
+                #print(self.mines, "=============")
 
                 self.lastX, self.lastY = self.mines.pop()
                 self.mines.add((self.lastX, self.lastY))
             else:
-                print("No mines to guess from==============")
+                #print("No mines to guess from==============")
                 while (self.lastX, self.lastY) not in self.mines and (self.lastX, self.lastY) not in self.explored:
                     self.lastX = random.randint(0, self.row)
                     self.lastY = random.randint(0, self.col)
@@ -588,13 +588,96 @@ class MyAI(AI):
         #print(frontierMapping)
 
 
-
+        '''
+        The AI is noticeable slow when len(frontier) > 21 or 22, but very much especially when maxNumMines > len(frontier)/2
+        only extreme cases should be fails on time, but curious about the speed of C++ compared to Python considering that
+        prof said 2^20 not a big deal to outright enumerate all possibiliies, but ofc exponential growth so 2^21 is 
+        significantly larger than 2^20 and so on
+        
+        Is brute force enumeration better? Shouldn't be?  20 tiles and 8 mines means 20 nCr 1 + 20 nCr 2 + ... + 20 nCr 8
+        vs 2^20, so 20 + 190 + 1140 + 4845 + 15504 + 38760 +77520 + 125970 = 262809 which is about a quarter of 2^20
+        
+        This performance degrades as the maxNumMines increases, looking forward 9: 167960, 10: 184756, this means if
+        maxNumMines were 20, we'd end up doing more work than straight enumeration, approx 200k more models, but 200k
+        isn't necessarily significant, but this ratio worsens drastically with larger frontiers
+        
+        
+        
+        Speed up ideas
+        - limit the number of mines, raise lower bound (very little gain except for large frontiers), lower the ceiling
+        of the max num mines
+        
+        the minimum number of mines is ceil(len(frontier)/3) ? or is at least approximately that can just do something
+        like ceil(len(frontier)/4) instead and instead of having to start at 1 mine, start at that number of mines
+        is this really faster
+        
+        the max number of mines might be able to be thought of as some function of len(frontier) and distribution of 
+        effective numbers?
+        
+        If have a high ratio of effective 3's then, will need fewer mines than if only had 1's?
+        
+        0 0 0 0 0
+        0 X X X X
+        
+        Let the X's be the red tiles, and the 0's be the blue tiles
+        
+        Need to think about this more
+        
+        
+        
+        Already trimming mines down by saying each frontier needs at least 1 mine.  Can't necessarily say that if there
+        are tiles outside of the blue and red, that they have a mine, but can be almost certain for larger boards, but
+        risky to estimate this fact, but even shaving 1 or 2 mines off will be significant.
+        
+        
+        Can try enumerating over all possible worlds, then stopping once the first consistent world is found, then 
+        maxNumMines -= consistentWorldNumMines, for the OTHER frontiers.
+        
+        Unsure if between worlds if the num mines require to make a consistent world can drop, assuming that we only add
+        red tiles and don't find any mine locations.  I think it should be fine, like the minimum shouldn't get any
+        smaller with more red tiles, since more constraints would only potentially make that model invalid, which then
+        means the next minimum is larger than the previously invalidated one which is not a problem.
+        
+        
+        Is there a way to recycle worlds, adding red tiles shouldn't expand the number of legal worlds, only reduce the
+        number of legal worlds, assuming the same blue frontier, or at least approximately the same blue frontier
+        
+        B B B B   ->    B B B B
+        X X X B         X X X X
+        
+        The addition of the bottom red tile shouldn't create more legal worlds, only serve to reduce the number of legal
+        worlds, so if we could save the legal worlds from the left, then check for consistency on the right, that might
+        be good.  But what is the actual speed up on this, doesn't necessarily seem significant?  This will/might break
+        if the new blue set is too small of a proper subset of the original blue set
+        
+        
+        The function for finding a soft max number of mines might be the best idea.
+        
+        1 2 1 2 1 2
+        X 0 X 0 X 0
+        
+        0 0 0 1 X
+        0 0 0 2 0
+        1 2 1 3 X
+        X 0 X 0 X
+        
+        Might be able to say if number of 1's in frontier >= half, the max num mines = len(frontier/2), but maybe 
+        add some constant factor just as security
+        
+        For times when maxNumMines approximately equals  
+        '''
         t = 0
         foundMine = False
         for frontier in blueSets:
+
             blueMap = {key: 0 for key in blueSets[t]}
 
             maxNumMines = min(self.remMines - (len(blueSets) - 1), len(frontier))
+            if len(frontier) > 20:
+                #print(len(frontier),maxNumMines)
+                self.move_set.add(self.mines.pop())
+                return
+
             #print("maxNumMines",maxNumMines)
             numConsistent = 0
             for i in range(1, maxNumMines+1):
@@ -650,9 +733,8 @@ class MyAI(AI):
                         Should in theory just be a small number of things, just do something like looping through the
                         values
                         '''
-
-
                         self.move_set.add(key)
+
                     elif value == numConsistent:
                         #print("Need to add tile", key, "to mines set")
                         foundMine = True
