@@ -437,20 +437,15 @@ class MyAI(AI):
         # ie, numRemaining mines = 2 and there are 2 red frontiers or something or just like 1 mine remaining idk
         # but shouldn't be too big of a deal, or a common thing on the larger worlds?
 
-        splitModels = {}
-        retNumConsistent = 0
-        remainderDict = {}
-
         keySet = set(redDict.keys())
-        valueSet = redDict.values()
-        valueList = redDict.values()
+
 
         '''
         for k,v in redDict.items():
             r,c = k
             print(k, v, self.effectiveBoard[r][c])
         '''
-        print("Starting frontier splitting")
+        #print("Starting frontier splitting")
         valueDict = {}
         for k, v in redDict.items():
             for s in v:
@@ -464,7 +459,7 @@ class MyAI(AI):
             if v == 1:
                 splitSet.add(k)
 
-        print(splitSet)
+        #print(splitSet)
         '''
         Have list of splits
         pop a split
@@ -882,11 +877,11 @@ class MyAI(AI):
                     break
             if consistent is True:
                 retSet.add(model)
-
+        '''
         print("RetSet")
         for i in retSet:
             print(i)
-
+        '''
         '''
         print("redDict")
         for k,v in redDict.items():
@@ -895,7 +890,7 @@ class MyAI(AI):
             print("effective board = ", self.effectiveBoard[r][c])
         '''
 
-        return
+        return retSet
 
     def getCSPAction(self):
         '''
@@ -1001,13 +996,14 @@ class MyAI(AI):
                         # print("left the while loop blueExpand set", blueExpand)
 
         # print(self.mines)
+        '''
         print("RedSets")
         for i in redSets:
             print(i)
         print("BlueSets")
         for i in blueSets:
             print(i)
-
+        '''
         '''
         At this point, the frontiers have been made
         Next steps:
@@ -1152,12 +1148,12 @@ class MyAI(AI):
 
             blueMap = {key: 0 for key in blueSets[t]}
             numConsistent = 0
-
+            tryNormal = True
             maxNumMines = min(self.remMines - (len(blueSets) - 1), len(frontier))
             if len(frontier) > 10:
                 # Build the dictionary {key = red tile: value=blue tiles}
                 # Instead copy the keys and values from red dict from frontier mapping
-
+                print("calling _frontierSplit on frontier size", len(frontier))
                 redDict = {}
                 for j in redSets[t]:
                     redDict[j] = frontierMapping[j]
@@ -1167,44 +1163,55 @@ class MyAI(AI):
                 models = self._frontierSplit(redDict)
                 # Do consistency checking on these models
                 # Or maybe just update blueMap based off of these models
+                if len(models) == 0:
+                    print("Something went very wrong")
+                else:
+                    tryNormal = False
+                for i in models:
+                    for key in i:
+                        blueMap[key] += 1
+                numConsistent = len(models)
+
 
             # print("maxNumMines",maxNumMines)
 
-            else:
+            elif tryNormal:
                 print("Normal model generation")
+                numConsistent = 0
 
+                # Probably move this block over into the else statement
+                # and add the code to turn the mine worlds into the bomb locations
+                for i in range(1, maxNumMines + 1):
+                    # print(i)
+                    worlds = combinations(frontier, i)
+                    while True:
+                        try:
+                            model = next(worlds)
+                            # print(model)
+                            '''
+                            At this point, the world has been generated so what needs to be done?
+                            Verify the model is consistent -> for each value in the red set, check that the intersection
+                            of its frontier mapping value and the model has the same len == effective board number
+                            then in the blueTiles dict, increment the value if it is a mine (in the model)
+                            '''
+                            consistent = True
+                            for j in redSets[t]:
+                                r, c = j
+                                if self.effectiveBoard[r][c] != len(frontierMapping[j].intersection(set(model))):
+                                    consistent = False
+                                    break
 
-            # Probably move this block over into the else statement
-            # and add the code to turn the mine worlds into the bomb locations
-            for i in range(1, maxNumMines + 1):
-                # print(i)
-                worlds = combinations(frontier, i)
-                while True:
-                    try:
-                        model = next(worlds)
-                        # print(model)
-                        '''
-                        At this point, the world has been generated so what needs to be done?
-                        Verify the model is consistent -> for each value in the red set, check that the intersection
-                        of its frontier mapping value and the model has the same len == effective board number
-                        then in the blueTiles dict, increment the value if it is a mine (in the model)
-                        '''
-                        consistent = True
-                        for j in redSets[t]:
-                            r, c = j
-                            if self.effectiveBoard[r][c] != len(frontierMapping[j].intersection(set(model))):
-                                consistent = False
-                                break
+                            if consistent is True:
+                                #print(model)
+                                numConsistent += 1
+                                for key in model:
+                                    blueMap[key] += 1
+                        except StopIteration:
+                            # print("No more worlds with",i,"mines")
+                            break
 
-                        if consistent is True:
-                            print(model)
-                            numConsistent += 1
-                            for key in model:
-                                blueMap[key] += 1
-                    except StopIteration:
-                        # print("No more worlds with",i,"mines")
-                        break
-
+            if tryNormal:
+                print(numConsistent)
             # print("Numbere of consistent worlds =", numConsistent)
             notAllConsistentCheck = False
             for value in blueMap.values():
