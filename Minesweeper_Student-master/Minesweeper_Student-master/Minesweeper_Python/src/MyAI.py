@@ -21,6 +21,7 @@ import time
 import heapq
 import itertools
 from itertools import combinations
+from itertools import product
 
 
 # import numpy as np # not sure if this is on the openlab env, but will be able to do some of the matrix stuff faster
@@ -135,7 +136,7 @@ class MyAI(AI):
         # self.effectiveBoard[self.lastX][self.lastY] = 0
         # if ( len(self.move_set) > 0):
         self.flag_set = set()
-        #print("New World")
+        # print("New World")
         # __init__ supposed to all get action for the first move, or will that
         # happen automatically?
 
@@ -163,6 +164,17 @@ class MyAI(AI):
                     ret_list.append((i, j))
 
         return ret_list
+
+    def _generateSurroundingSet(self, row, col) -> [(int, int)]:
+        ret_set = set()
+        for i in range(row - 1, row + 2, 1):
+            for j in range(col - 1, col + 2, 1):
+                if ((i >= self.row or i < 0) or (j >= self.col or j < 0) or (i == row and j == col)):
+                    pass
+                else:
+                    ret_set.add((i, j))
+
+        return ret_set
 
     # Maybe condense all of the increment, decrement and stuff on surroundings into 1
     # fucntion
@@ -217,19 +229,14 @@ class MyAI(AI):
             print()
         '''
 
-
-
         self.board[self.lastX][self.lastY] = number
         self.explored.add((self.lastX, self.lastY))
         self.remSquares -= 1
 
-
-        #print("moves", self.move_set)
-        #print("mines", self.mines, "numMines=", len(self.mines))
-        #print("remaining mines should equal", self.totalMines, "-", len(self.mines), "=", self.remMines)
-        #print("Remaining squares=", self.remSquares)
-
-
+        # print("moves", self.move_set)
+        # print("mines", self.mines, "numMines=", len(self.mines))
+        # print("remaining mines should equal", self.totalMines, "-", len(self.mines), "=", self.remMines)
+        # print("Remaining squares=", self.remSquares)
 
         if self.effectiveBoard[self.lastX][self.lastY] is False:
             self.effectiveBoard[self.lastX][self.lastY] = number
@@ -253,16 +260,12 @@ class MyAI(AI):
         if self.remSquares - self.totalMines == 0:
             return Action(AI.Action.LEAVE)
 
-
-
-
         # This feels a little hacky but maybe it's alright
         if self.remMines == 0:
             for i in range(self.row):
                 for j in range(self.col):
-                    if (i,j) not in self.explored and (i,j) not in self.mines:
-                        self.move_set.add((i,j))
-
+                    if (i, j) not in self.explored and (i, j) not in self.mines:
+                        self.move_set.add((i, j))
 
         if number == 0:
             '''
@@ -331,11 +334,10 @@ class MyAI(AI):
                     if (i, j) not in self.explored:
                         self.move_set.add((i, j))
                     # Maybe this should stay in the if, not sure if will have ever a new thing to add with this
-                    surrounding = self._generateSurrounding(i,j)
-                    for r,c in surrounding:
-                        if (r,c) not in self.explored and (r,c) not in self.mines:
-                            self.move_set.add((r,c))
-
+                    surrounding = self._generateSurrounding(i, j)
+                    for r, c in surrounding:
+                        if (r, c) not in self.explored and (r, c) not in self.mines:
+                            self.move_set.add((r, c))
 
         while len(self.future_expansion) != 0:
             r, c = self.future_expansion.pop()
@@ -351,6 +353,12 @@ class MyAI(AI):
                 if self.remainingBoard[i][j] == 0 and ((i, j) not in self.mines and (i, j) not in self.explored):
                     self.move_set.add((i, j))
 
+        if len(self.mines) == self.totalMines:
+            for i in range(self.row):
+                for j in range(self.col):
+                    if self.board[i][j] == -1 and (i, j) not in self.mines:
+                        self.move_set.add((i, j))
+
         if len(self.move_set) > 0:
             self.lastX, self.lastY = self.move_set.pop()
             return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
@@ -359,9 +367,8 @@ class MyAI(AI):
             return Action(AI.Action.FLAG, self.lastX, self.lastY)
         else:
 
-            #self.lastX = random.randint(0, self.row)
-            #self.lastY = random.randint(0, self.col)
-
+            # self.lastX = random.randint(0, self.row)
+            # self.lastY = random.randint(0, self.col)
 
             self.getCSPAction()
 
@@ -376,13 +383,11 @@ class MyAI(AI):
                                 self.move_set.add((r, c))
 
             if len(self.move_set) > 0:
-                #print(self.move_set)
+                # print(self.move_set)
                 self.lastX, self.lastY = self.move_set.pop()
                 return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
 
-
-
-            #print("Had to guess")
+            # print("Had to guess")
 
             '''
             if num frontiers == num mines, then we can guess every tile thats not in the frontiers since there 
@@ -390,12 +395,12 @@ class MyAI(AI):
             
             '''
             if len(self.mines) > 0:
-                #print(self.mines, "=============")
+                # print(self.mines, "=============")
 
                 self.lastX, self.lastY = self.mines.pop()
                 self.mines.add((self.lastX, self.lastY))
             else:
-                #print("No mines to guess from==============")
+                # print("No mines to guess from==============")
                 while (self.lastX, self.lastY) not in self.mines and (self.lastX, self.lastY) not in self.explored:
                     self.lastX = random.randint(0, self.row)
                     self.lastY = random.randint(0, self.col)
@@ -426,6 +431,472 @@ class MyAI(AI):
     def _cornerCheck(self, row, col):
         return (row == 0 or row == self.row - 1) and (col == 0 or col == self.col - 1)
 
+    def _frontierSplit(self, redDict):
+        # has an occasional tendency to return/produce a mine layout that has more mines than it should.  I think it's
+        # a legal placement that it finds, but it fails to take into account the state of the board outside of it
+        # ie, numRemaining mines = 2 and there are 2 red frontiers or something or just like 1 mine remaining idk
+        # but shouldn't be too big of a deal, or a common thing on the larger worlds?
+
+        splitModels = {}
+        retNumConsistent = 0
+        remainderDict = {}
+
+        keySet = set(redDict.keys())
+        valueSet = redDict.values()
+        valueList = redDict.values()
+
+        '''
+        for k,v in redDict.items():
+            r,c = k
+            print(k, v, self.effectiveBoard[r][c])
+        '''
+        print("Starting frontier splitting")
+        valueDict = {}
+        for k, v in redDict.items():
+            for s in v:
+                if s in valueDict.keys():
+                    valueDict[s] += 1
+                else:
+                    valueDict[s] = 1
+
+        splitSet = set()
+        for k, v in valueDict.items():
+            if v == 1:
+                splitSet.add(k)
+
+        print(splitSet)
+        '''
+        Have list of splits
+        pop a split
+        generate worlds on that split
+        while list of splits not empty
+            pop a split
+            generate worlds on that split
+            merge with existing worlds 
+        '''
+
+        '''
+        frontier = {(1,1), (1,2), (1,3), ... (1,10)}
+        splits {(1,1) ... (1,4)}, {(1,5) , ... (1,10)} {(1,11), .. (1,20)}
+        
+        Find blue on edge of board
+        DFS chain the blue tiles until have no more than 15 blue tiles in frontier, then split again
+        '''
+        edgeSet = set()
+        for value in valueDict.keys():
+            if self._edgeCheck(value[0], value[1]):
+                edgeSet.add(value)
+
+        if len(edgeSet) == 0:
+            print("No edge")
+
+            start = splitSet.pop()
+            splitSet.add(start)
+            blueQueue = [start]
+            redQueue = []
+
+            numBlue = 1
+            numFrontiers = 0
+            seenBlue = set()
+            frontierRedSets = []
+            frontierBlueSets = []
+            frontierBlues = set()
+            frontierBlues.add(start)
+            frontierReds = set()
+            frontierLengths = []
+            splits = []
+            splitCheck = False
+            # print("start is", start)
+            while len(blueQueue) > 0:
+                if len(frontierBlues) > 5:
+                    # Reset where these nodes are being saved
+                    # frontierDict[numFrontiers] = (frontierReds, frontierBlues)
+                    '''
+                    print("Blue queue", blueQueue)
+                    print("frontier Reds", frontierReds)
+                    print("Frontier Blues", frontierBlues)
+                    '''
+
+                    frontierRedSets.append(frontierReds)
+                    frontierBlueSets.append(frontierBlues)
+                    frontierLengths.append(len(frontierBlues))
+                    frontierBlues = set()
+                    frontierReds = set()
+                    numFrontiers += 1
+                    splits.append((lastRed, lastBlue))
+
+                node = blueQueue.pop(0)
+                seenBlue.add(node)
+                neighbors = self._generateSurrounding(node[0], node[1])
+                for red in neighbors:
+                    if red in keySet:
+                        redQueue.append(red)
+                        frontierReds.add(red)
+                        lastRed = red
+                while len(redQueue) > 0:
+                    redNode = redQueue.pop(0)
+                    blueNeighbors = self._generateSurrounding(redNode[0], redNode[1])
+                    for blue in blueNeighbors:
+                        if blue not in seenBlue and blue in valueDict.keys():
+                            numBlue += 1
+                            seenBlue.add(blue)
+                            frontierBlues.add(blue)
+                            blueQueue.append(blue)
+                            lastBlue = blue
+
+            # frontierDict[numFrontiers] = (frontierReds, frontierBlues)
+            frontierRedSets.append(frontierReds)
+            frontierBlueSets.append(frontierBlues)
+            frontierLengths.append(len(frontierBlues))
+
+            numFrontiers += 1
+            # Might need to add something again to split here, but not sure
+            splitDicts = []
+            for i in range(numFrontiers):
+                tempDict = {}
+                for k in frontierRedSets[i]:
+                    neighbors = self._generateSurroundingSet(k[0], k[1])
+                    value = neighbors.intersection(frontierBlueSets[i])
+                    if len(value) > 0:
+                        tempDict[k] = value
+                        splitDicts.append(tempDict)
+
+
+        else:
+            start = edgeSet.pop()
+            blueQueue = [start]
+            redQueue = []
+
+            numBlue = 1
+            numFrontiers = 0
+            seenBlue = set()
+            frontierRedSets = []
+            frontierBlueSets = []
+            frontierBlues = set()
+            frontierBlues.add(start)
+            frontierReds = set()
+            frontierLengths = []
+            splits = []
+            splitCheck = False
+            # print("start is", start)
+            while len(blueQueue) > 0:
+                if len(frontierBlues) > 5:
+                    # Reset where these nodes are being saved
+                    # frontierDict[numFrontiers] = (frontierReds, frontierBlues)
+                    '''
+                    print("Blue queue", blueQueue)
+                    print("frontier Reds", frontierReds)
+                    print("Frontier Blues", frontierBlues)
+                    '''
+                    '''
+                    To round out frontiers, check if any red tile has all of its blue tiles in the frontier
+                    if so, add that red tile to frontier reds
+                    check if a red tile in the frontier is missing any tiles, add those blue tiles unless those tiles
+                    have already been seen?
+                    '''
+
+                    frontierRedSets.append(frontierReds)
+                    frontierBlueSets.append(frontierBlues)
+                    frontierLengths.append(len(frontierBlues))
+                    frontierBlues = set()
+                    frontierReds = set()
+                    numFrontiers += 1
+                    splits.append((lastRed, lastBlue))
+
+                node = blueQueue.pop(0)
+                seenBlue.add(node)
+                neighbors = self._generateSurrounding(node[0], node[1])
+                for red in neighbors:
+                    if red in keySet:
+                        redQueue.append(red)
+                        frontierReds.add(red)
+                        lastRed = red
+                while len(redQueue) > 0:
+                    redNode = redQueue.pop(0)
+                    blueNeighbors = self._generateSurrounding(redNode[0], redNode[1])
+                    for blue in blueNeighbors:
+                        if blue not in seenBlue and blue in valueDict.keys():
+                            numBlue += 1
+                            seenBlue.add(blue)
+                            frontierBlues.add(blue)
+                            blueQueue.append(blue)
+                            lastBlue = blue
+
+            # frontierDict[numFrontiers] = (frontierReds, frontierBlues)
+            frontierRedSets.append(frontierReds)
+            frontierBlueSets.append(frontierBlues)
+            frontierLengths.append(len(frontierBlues))
+
+            numFrontiers += 1
+            # Might need to add something again to split here, but not sure
+            splitDicts = []
+            for i in range(numFrontiers):
+                tempDict = {}
+                for k in frontierRedSets[i]:
+                    neighbors = self._generateSurroundingSet(k[0], k[1])
+                    value = neighbors.intersection(frontierBlueSets[i])
+                    if len(value) > 0:
+                        tempDict[k] = value
+                splitDicts.append(tempDict)
+
+            '''
+            print("splitDicts")
+            for i in splitDicts:
+                print(i)
+            '''
+            '''
+            for key in whatever:
+            generate neighbors of key
+            if neighbor in frontierBlueSets[i]
+            then update value of key
+            '''
+
+        '''
+        print("splits",splits)
+        print("frontierBlues", frontierBlues)
+        print("frontierReds", frontierReds)
+        print("numBlue should equal the frontier legnth, so", numBlue,"=",len(valueDict))
+        '''
+        '''
+        Frontiers are roughly generated, now need to redefine the effective numbers.  For the most part this will be
+        the same for all tiles, this will be more or less checking if the redDict key value mapping == the frontier
+        dict key value mapping ie if in redDict we have (1,2): {(3,2),(2,2)(1,1)}
+        if the frontier dict value for the key (1,2) is {(1,1)}, then we know that the frontier was spilt here,
+        so the effective number for this red tile is <= the true value from the board 
+        
+        so how to do this then? Don't want to do that checking for every model, so do that checking and save it
+        to a dict? {key=Red Tile : value=True/False} -> True means the effective board value is correct
+                                                        False means need <= effective board value
+        
+        Also need to scrub entries in splitDicts where the value is empty set -> This has been changed to be fixed at 
+        building of the frontier dicts
+        '''
+        evalDict = {}
+        for i in splitDicts:
+            for k, v in i.items():
+                if v == redDict[k]:
+                    evalDict[k] = True
+                    # True means that effective board value is accurate, strict constraint
+                else:
+                    evalDict[k] = False
+                    # False means that effective board value is a loose constraint
+
+        '''
+        So should now be able to start generating the worlds
+        
+        start at the beginning of the list, generate the worlds through combinations or pure enumeration?
+        maybe through pure enumeration? need to save the models in something, probably just a set or something
+        
+        might need to generate 2 worlds ahe start, then merge, repeated generate and merge
+        
+        Do we actually need the splitDicts beyond doing the checking? yes-> want the keys from them, and then will
+        need to merge them when doing the cross product stuff
+        '''
+
+        currentFrontier = splitDicts[0]
+        cFReds = currentFrontier.keys()
+        cFLen = frontierLengths[0]
+
+        '''
+        print("\ncurrentFrontierReds", cFReds)
+        print("currentFrontier", currentFrontier)
+        print("generating combinations on", frontierBlueSets[0])
+        '''
+
+        legalWorlds = set()
+        for i in range(0, cFLen + 1):
+            worlds = combinations(frontierBlueSets[0], i)
+            while True:
+                try:
+                    model = next(worlds)
+                    consistent = True
+                    for j in cFReds:
+                        r, c = j
+                        if evalDict[j] is False and self.effectiveBoard[r][c] <= len(
+                                currentFrontier[j].intersection(set(model))):
+                            # Legal, split case,
+                            pass
+                        elif evalDict[j] is True and self.effectiveBoard[r][c] == len(
+                                currentFrontier[j].intersection(set(model))):
+                            # Legal so do nothing, might not eed the eval dict part, but probably doesn't hurt
+                            pass
+                        else:
+                            consistent = False
+                            break
+
+                    if consistent is True:
+                        legalWorlds.add(model)
+
+                except StopIteration:
+                    break
+
+        '''
+        print("first legal worlds")
+        for i in legalWorlds:
+            print(i)
+        '''
+        savedWorlds = legalWorlds
+        checkDict = splitDicts[0]
+        '''
+        
+        Have the first set oif legal worlds, now need to generate the next set and merge repeated
+        '''
+
+        print("starting generation and merging")
+        for i in range(1, numFrontiers):
+
+            currentFrontier = splitDicts[i]
+            cFReds = currentFrontier.keys()
+
+            '''
+            print("\ncurrentFrontierReds", cFReds)
+            print("currentFrontier", currentFrontier)
+            for p in currentFrontier:
+                print(p,evalDict[p], end = '')
+            print()
+            print("generating combinations on", frontierBlueSets[i])
+            '''
+
+            try:
+                cFLen = frontierLengths[i]
+
+                legalWorlds = set()
+                for k in range(0, cFLen + 1):
+                    worlds = combinations(frontierBlueSets[i], k)
+                    while True:
+                        try:
+                            model = next(worlds)
+                            consistent = True
+                            for j in cFReds:
+                                r, c = j
+                                # if evalDict[j] is False and self.effectiveBoard[r][c] <= len(currentFrontier[j].intersection(set(model))):
+                                if evalDict[j] is False:
+                                    # Legal, split case,
+                                    pass
+                                elif evalDict[j] is True and self.effectiveBoard[r][c] == len(
+                                        currentFrontier[j].intersection(set(model))):
+                                    # Legal so do nothing, might not eed the eval dict part, but probably doesn't hurt
+                                    pass
+                                else:
+                                    consistent = False
+                                    break
+
+                            if consistent is True:
+                                legalWorlds.add(model)
+
+                        except StopIteration:
+                            break
+            except IndexError:
+                print("\nBAD INDEX THING\n")
+                print(i)
+                print(len(splitDicts))
+                print(len(frontierLengths))
+            '''
+            Merge the worlds here, how to do?
+            make a single split dict entry? just build a whole new dict, probably cleaner
+            iterate through values of current split dict, check if key in the dict
+            if no, just add key value pair to dict
+            if yes, add value to current dict entry, then check if evalDict needs to be updated
+            
+            take the cross product -> product() of legal worlds and consistent worlds
+            treat the result as a single set
+            take the union of the dictionaries (make a new var for saved?)
+            update  the consistency stuff based on the new dictionary
+            evaluate the worlds over again
+            '''
+
+            # Merge the dicts, checkDict and splitDict the worlds were just generated for
+            for k, v in currentFrontier.items():
+                if k not in checkDict:
+                    checkDict[k] = v
+                else:
+                    # Keep and eye out on this part right here
+                    # Pretty sure this else should never trigger, but just in case have it
+                    checkDict[k].update(v)
+                    print(checkDict[k])
+                    if checkDict[k] == redDict[k]:
+                        evalDict[k] = True
+            '''
+            print("merging")
+            print(savedWorlds)
+            print(legalWorlds)
+            '''
+            mergedModels = product(savedWorlds, legalWorlds)
+            newLegalWorlds = set()
+            while True:
+                try:
+                    merge = next(mergedModels)
+                    # model will be 2 tuple of tuples, need to make this into a set of tuples
+
+                    model = set(merge[0])
+                    model.update(merge[1])
+
+                    # Model needs to be a tuple or just not a set
+                    # comes out of next() looking like (world1, world2), where world 1 and 2 are half of the model
+                    # which are a tuple of tuples -> ((blue, blue, blue) , (blue, blue, blue))
+                    # Neeed the final thing to be (blue, blue, blue, blue, blue, blue) where blue is a tuple of 2 numbers
+                    # just do it the feelsbad way of casting it to a tuple after?
+
+                    consistent = True
+                    for j in cFReds:
+                        r, c = j
+
+                        # if evalDict[j] is False and self.effectiveBoard[r][c] <= len(
+                        #        currentFrontier[j].intersection(model)):
+                        if evalDict[j] is False:
+                            # Legal, split case?
+                            # Maybe just let all of this stuff pass and then hopefully catch it at the end
+                            # so just check for evalDict[j] is False
+                            pass
+                        elif evalDict[j] is True and self.effectiveBoard[r][c] == len(
+                                currentFrontier[j].intersection(model)):
+                            # Legal so do nothing, might not eed the eval dict part, but probably doesn't hurt
+                            pass
+                        else:
+                            consistent = False
+                            break
+
+                    if consistent is True:
+                        newLegalWorlds.add(tuple(model))
+
+                except StopIteration:
+                    break
+
+            savedWorlds = newLegalWorlds
+
+            '''
+            print("legal/saved worlds")
+            for p in savedWorlds:
+                print(p)
+            '''
+
+        # At this point, the entire frontier should be merged, and these are all of the consistent worlds, at least so far?
+        # try one more consistency check to finish it off?
+        retSet = set()
+        for model in savedWorlds:
+            consistent = True
+            for j in redDict:
+                r, c = j
+                if self.effectiveBoard[r][c] != len(redDict[j].intersection(set(model))):
+                    consistent = False
+                    break
+            if consistent is True:
+                retSet.add(model)
+
+        print("RetSet")
+        for i in retSet:
+            print(i)
+
+        '''
+        print("redDict")
+        for k,v in redDict.items():
+            r,c = j
+            print(k,":", v,)
+            print("effective board = ", self.effectiveBoard[r][c])
+        '''
+
+        return
+
     def getCSPAction(self):
         '''
         1 Generate all of the frontiers
@@ -442,7 +913,7 @@ class MyAI(AI):
         # These are the sets of frontiers
         redSets = []
         blueSets = []
-        #print("Doing CSP stuff")
+        # print("Doing CSP stuff")
 
         '''
         print("Index Board")
@@ -478,11 +949,11 @@ class MyAI(AI):
         for i in range(self.row):
             for j in range(self.col):
                 if self.effectiveBoard[i][j] is not False and self.effectiveBoard[i][j] > 0 and (
-                i, j) not in expandedRed:
+                        i, j) not in expandedRed:
 
                     # We can create a new set for this node, since if it has not been expanded before, then it is not
                     # connected to any existing frontier
-                    #print("appending", i, j)
+                    # print("appending", i, j)
                     redSets.append({(i, j)})
                     blueSets.append(set())
 
@@ -495,21 +966,20 @@ class MyAI(AI):
                         to not be in mines and needs to be covered to be a blue tile
                         '''
                         if self.board[r][c] == -1 and (r, c) not in self.mines and (r, c) not in expandedBlue:
-                            #print("Adding first in frontier, should be a rare occurrence to see multiple of these", r,c)
+                            # print("Adding first in frontier, should be a rare occurrence to see multiple of these", r,c)
                             blueExpand.add((r, c))
-                        #print(blueSets)
+                        # print(blueSets)
                         first = True
 
                         # This while loop might not be working as intended if there are things being added
 
-
-                        while len(blueExpand) != 0: # Maybe add clause " and (r,c) not in expandedBlue"
+                        while len(blueExpand) != 0:  # Maybe add clause " and (r,c) not in expandedBlue"
                             expR, expC = blueExpand.pop()
                             blueSets[-1].add((expR, expC))
                             expandedBlue.add((expR, expC))
                             redExp = self._generateSurrounding(expR, expC)
-                            #print("RedExp is", redExp, "based off of node", expR, expC)
-                            #print(len(blueExpand))
+                            # print("RedExp is", redExp, "based off of node", expR, expC)
+                            # print(len(blueExpand))
                             for iR, iC in redExp:
                                 node = (iR, iC)
                                 if node not in expandedRed and self.remainingBoard[iR][iC] > 0 and self.board[iR][
@@ -520,25 +990,23 @@ class MyAI(AI):
                             while len(redExpand) > 0:
                                 rExpR, rExpC = redExpand.pop()
                                 blueExp = self._generateSurrounding(rExpR, rExpC)
-                                #print()
-                                #print("Expanding blue", blueExp, "based off of red node", rExpR, rExpC)
+                                # print()
+                                # print("Expanding blue", blueExp, "based off of red node", rExpR, rExpC)
                                 for bR, bC in blueExp:
-                                    if self.board[bR][bC] == -1 and (bR, bC) not in self.mines and (bR, bC) not in expandedBlue:
+                                    if self.board[bR][bC] == -1 and (bR, bC) not in self.mines and (
+                                    bR, bC) not in expandedBlue:
                                         blueExpand.add((bR, bC))
 
+                            # print("blueExpand set", blueExpand, "has len ", len(blueExpand))
+                        # print("left the while loop blueExpand set", blueExpand)
 
-                            #print("blueExpand set", blueExpand, "has len ", len(blueExpand))
-                        #print("left the while loop blueExpand set", blueExpand)
-
-        '''
+        # print(self.mines)
         print("RedSets")
         for i in redSets:
             print(i)
         print("BlueSets")
         for i in blueSets:
             print(i)
-        '''
-
 
         '''
         At this point, the frontiers have been made
@@ -567,6 +1035,17 @@ class MyAI(AI):
         
         Make this instead so that we are counting the number of are mines rather than the number of times are safe
         '''
+
+        # This is something to think about here
+        if len(blueSets) == 0 or len(redSets) == 0:
+            for i in range(self.row):
+                for j in range(self.col):
+                    if self.board[i][j] == -1 and (i, j) not in self.mines:
+                        # This will need some tuning.  Should be pretty rare to have situation where
+                        # there no frontier is generated, but need to do some investigation about it
+                        self.move_set.add((i, j))
+                        return
+
         '''
         Facts about frontiers:
         1 Each frontier must have at least 1 mine, so then the maximum number of mines to be placed in a frontier is
@@ -580,13 +1059,11 @@ class MyAI(AI):
         # This is pretty inefficient right now, but should work fine
         frontierMapping = {}
         for i in expandedRed:
-            r,c = i
-            frontierMapping[i] = set(self._generateSurrounding(r,c)).intersection(expandedBlue)
+            r, c = i
+            frontierMapping[i] = set(self._generateSurrounding(r, c)).intersection(expandedBlue)
 
-
-        #print("frontierMapping")
-        #print(frontierMapping)
-
+        # print("frontierMapping")
+        # print(frontierMapping)
 
         '''
         The AI is noticeable slow when len(frontier) > 21 or 22, but very much especially when maxNumMines > len(frontier)/2
@@ -667,26 +1144,45 @@ class MyAI(AI):
         For times when maxNumMines approximately equals  
         '''
         t = 0
+
+        probabilityDict = {}
+        newMove = False
         foundMine = False
         for frontier in blueSets:
 
             blueMap = {key: 0 for key in blueSets[t]}
+            numConsistent = 0
 
             maxNumMines = min(self.remMines - (len(blueSets) - 1), len(frontier))
-            if len(frontier) > 20:
-                #print(len(frontier),maxNumMines)
-                self.move_set.add(self.mines.pop())
-                return
+            if len(frontier) > 10:
+                # Build the dictionary {key = red tile: value=blue tiles}
+                # Instead copy the keys and values from red dict from frontier mapping
 
-            #print("maxNumMines",maxNumMines)
-            numConsistent = 0
-            for i in range(1, maxNumMines+1):
-                #print(i)
+                redDict = {}
+                for j in redSets[t]:
+                    redDict[j] = frontierMapping[j]
+
+                # Should frontier split return anything, or should it just do all of the work of the function
+                # skip the stuff from below
+                models = self._frontierSplit(redDict)
+                # Do consistency checking on these models
+                # Or maybe just update blueMap based off of these models
+
+            # print("maxNumMines",maxNumMines)
+
+            else:
+                print("Normal model generation")
+
+
+            # Probably move this block over into the else statement
+            # and add the code to turn the mine worlds into the bomb locations
+            for i in range(1, maxNumMines + 1):
+                # print(i)
                 worlds = combinations(frontier, i)
                 while True:
                     try:
                         model = next(worlds)
-                        #print(model)
+                        # print(model)
                         '''
                         At this point, the world has been generated so what needs to be done?
                         Verify the model is consistent -> for each value in the red set, check that the intersection
@@ -695,21 +1191,21 @@ class MyAI(AI):
                         '''
                         consistent = True
                         for j in redSets[t]:
-                            r,c = j
+                            r, c = j
                             if self.effectiveBoard[r][c] != len(frontierMapping[j].intersection(set(model))):
                                 consistent = False
                                 break
 
                         if consistent is True:
-                            #print(model)
+                            print(model)
                             numConsistent += 1
                             for key in model:
                                 blueMap[key] += 1
                     except StopIteration:
-                        #print("No more worlds with",i,"mines")
+                        # print("No more worlds with",i,"mines")
                         break
 
-            #print("Numbere of consistent worlds =", numConsistent)
+            # print("Numbere of consistent worlds =", numConsistent)
             notAllConsistentCheck = False
             for value in blueMap.values():
                 if value != 0:
@@ -717,7 +1213,6 @@ class MyAI(AI):
                     '''
                     Probably need some additional behavior here
                     '''
-
                     break
 
             if notAllConsistentCheck:
@@ -733,10 +1228,11 @@ class MyAI(AI):
                         Should in theory just be a small number of things, just do something like looping through the
                         values
                         '''
+                        newMove = True
                         self.move_set.add(key)
 
                     elif value == numConsistent:
-                        #print("Need to add tile", key, "to mines set")
+                        # print("Need to add tile", key, "to mines set")
                         foundMine = True
                         self.mines.add(key)
                         self.remMines -= 1
@@ -752,18 +1248,28 @@ class MyAI(AI):
                             if self.effectiveBoard[n][m] == 0 and (n, m) not in self.expanded_set:
                                 self.future_expansion.add((n, m))
 
+                    else:
+                        probabilityDict[key] = value / numConsistent
+
             while len(self.future_expansion) != 0:
                 r, c = self.future_expansion.pop()
                 scan_list = self._generateSurrounding(r, c)
                 for i, j in scan_list:
                     if (i, j) not in self.explored and (i, j) not in self.mines:
-                        #print("Expanding off of safe node", r, c, "adding", i,j)
+                        # print("Expanding off of safe node", r, c, "adding", i,j)
                         self.move_set.add((i, j))
             t += 1
+            # print("blueMap")
+            # print(blueMap)
 
-
-            #print("blueMap")
-            #print(blueMap)
+        if newMove is False:
+            for key, value in probabilityDict.items():
+                # print(value)
+                if value < .10:
+                    newMove = True
+                    self.move_set.add(key)
+            if newMove is False:
+                self.move_set.add(min(probabilityDict.items(), key=lambda a: a[1])[0])
 
         '''
         Need to adjust the code so that, if no safe square or mine is found, we resort to probabilities
@@ -774,6 +1280,4 @@ class MyAI(AI):
 
         if foundMine is True:
             pass
-            #self.getCSPAction()
-
-
+            # self.getCSPAction()
