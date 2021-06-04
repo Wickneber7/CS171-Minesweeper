@@ -35,8 +35,12 @@ class MyAI(AI):
         ########################################################################
         self.totalMines = totalMines
         self.remMines = totalMines
-        self.row = rowDimension
-        self.col = colDimension
+
+        #self.row = rowDimension
+        #self.col = colDimension
+
+        self.row = colDimension
+        self.col = rowDimension
 
         self.remSquares = rowDimension * colDimension
         # is there a reason to want to keep the hold of the original number of
@@ -116,6 +120,9 @@ class MyAI(AI):
         # safe and what isn't? or would keeping a safe set be useful for guessing
 
         self.remaining_moves = set()
+
+        # Set this to false to quit early on large worlds
+        self.short = True
 
         ###############   Stuf to think about more   ##########################
 
@@ -233,8 +240,8 @@ class MyAI(AI):
         self.explored.add((self.lastX, self.lastY))
         self.remSquares -= 1
 
-        # print("moves", self.move_set)
-        # print("mines", self.mines, "numMines=", len(self.mines))
+        #print("moves", self.move_set)
+        #print("mines", self.mines, "numMines=", len(self.mines))
         # print("remaining mines should equal", self.totalMines, "-", len(self.mines), "=", self.remMines)
         # print("Remaining squares=", self.remSquares)
 
@@ -369,8 +376,13 @@ class MyAI(AI):
 
             # self.lastX = random.randint(0, self.row)
             # self.lastY = random.randint(0, self.col)
-
-            self.getCSPAction()
+            try:
+                self.getCSPAction()
+            except:
+                if self.short:
+                    print("\n CSP ISSUE\n")
+                else:
+                    pass
 
             for i in range(self.row):
                 for j in range(self.col):
@@ -437,20 +449,15 @@ class MyAI(AI):
         # ie, numRemaining mines = 2 and there are 2 red frontiers or something or just like 1 mine remaining idk
         # but shouldn't be too big of a deal, or a common thing on the larger worlds?
 
-        splitModels = {}
-        retNumConsistent = 0
-        remainderDict = {}
-
         keySet = set(redDict.keys())
-        valueSet = redDict.values()
-        valueList = redDict.values()
 
         '''
+        print(self.mines)
         for k,v in redDict.items():
             r,c = k
             print(k, v, self.effectiveBoard[r][c])
         '''
-        print("Starting frontier splitting")
+        #print("Starting frontier splitting")
         valueDict = {}
         for k, v in redDict.items():
             for s in v:
@@ -464,7 +471,7 @@ class MyAI(AI):
             if v == 1:
                 splitSet.add(k)
 
-        print(splitSet)
+        #print(splitSet)
         '''
         Have list of splits
         pop a split
@@ -488,7 +495,7 @@ class MyAI(AI):
                 edgeSet.add(value)
 
         if len(edgeSet) == 0:
-            print("No edge")
+            #print("No edge")
 
             start = splitSet.pop()
             splitSet.add(start)
@@ -560,6 +567,26 @@ class MyAI(AI):
                     if len(value) > 0:
                         tempDict[k] = value
                         splitDicts.append(tempDict)
+
+            #splitDicts = list(set(splitDicts))
+            #print("splitDicts", len(splitDicts))
+
+            #[dict(t) for t in {tuple(sorted(d.items())) for d in l}]
+
+            #tuple(splitDicts[i].keys())
+
+            seen = set()
+            newSplit = []
+            for i in range(len(splitDicts)):
+                oldLen = len(seen)
+                seen.add(tuple(splitDicts[i].keys()))
+                if len(seen) > oldLen:
+                    newSplit.append(splitDicts[i])
+
+
+            splitDicts = newSplit
+            numFrontiers = len(splitDicts)
+            #print("splitDicts after remove dups", len(splitDicts))
 
 
         else:
@@ -712,7 +739,8 @@ class MyAI(AI):
                     consistent = True
                     for j in cFReds:
                         r, c = j
-                        if evalDict[j] is False and self.effectiveBoard[r][c] <= len(
+                        #
+                        if evalDict[j] is False and self.effectiveBoard[r][c] >= len(
                                 currentFrontier[j].intersection(set(model))):
                             # Legal, split case,
                             pass
@@ -736,18 +764,38 @@ class MyAI(AI):
             print(i)
         '''
         savedWorlds = legalWorlds
+
         checkDict = splitDicts[0]
+
+
         '''
-        
+        print("saved worlds")
+        for i in savedWorlds:
+            print(i)
+        '''
+        '''
+        print("check dict keys", checkDict.keys())
+        for k, v in evalDict.items():
+            if v is False:
+                print(k)
+        '''
+        '''
         Have the first set oif legal worlds, now need to generate the next set and merge repeated
         '''
 
-        print("starting generation and merging")
+
+        #print("starting generation")
         for i in range(1, numFrontiers):
+
 
             currentFrontier = splitDicts[i]
             cFReds = currentFrontier.keys()
 
+            '''
+            print(currentFrontier.values())
+            for p in cFReds:
+                print(p, evalDict[p])
+            '''
             '''
             print("\ncurrentFrontierReds", cFReds)
             print("currentFrontier", currentFrontier)
@@ -757,40 +805,38 @@ class MyAI(AI):
             print("generating combinations on", frontierBlueSets[i])
             '''
 
-            try:
-                cFLen = frontierLengths[i]
 
-                legalWorlds = set()
-                for k in range(0, cFLen + 1):
-                    worlds = combinations(frontierBlueSets[i], k)
-                    while True:
-                        try:
-                            model = next(worlds)
-                            consistent = True
-                            for j in cFReds:
-                                r, c = j
-                                # if evalDict[j] is False and self.effectiveBoard[r][c] <= len(currentFrontier[j].intersection(set(model))):
-                                if evalDict[j] is False:
-                                    # Legal, split case,
-                                    pass
-                                elif evalDict[j] is True and self.effectiveBoard[r][c] == len(
-                                        currentFrontier[j].intersection(set(model))):
-                                    # Legal so do nothing, might not eed the eval dict part, but probably doesn't hurt
-                                    pass
-                                else:
-                                    consistent = False
-                                    break
+            cFLen = frontierLengths[i]
 
-                            if consistent is True:
-                                legalWorlds.add(model)
+            legalWorlds = set()
+            for k in range(0, cFLen + 1):
+                worlds = combinations(frontierBlueSets[i], k)
+                while True:
+                    try:
+                        model = next(worlds)
+                        consistent = True
+                        for j in cFReds:
+                            r, c = j
+                            # >= might supposed to be <=
+                            if evalDict[j] is False and self.effectiveBoard[r][c] >= len(currentFrontier[j].intersection(set(model))):
+                                #if evalDict[j] is False:
+                                # Legal, split case,
+                                pass
+                            elif evalDict[j] is True and self.effectiveBoard[r][c] == len(
+                                    currentFrontier[j].intersection(set(model))):
+                                # Legal so do nothing, might not eed the eval dict part, but probably doesn't hurt
+                                pass
+                            else:
+                                consistent = False
+                                break
 
-                        except StopIteration:
-                            break
-            except IndexError:
-                print("\nBAD INDEX THING\n")
-                print(i)
-                print(len(splitDicts))
-                print(len(frontierLengths))
+                        if consistent is True:
+                            legalWorlds.add(model)
+
+
+                    except StopIteration:
+                         break
+
             '''
             Merge the worlds here, how to do?
             make a single split dict entry? just build a whole new dict, probably cleaner
@@ -804,23 +850,52 @@ class MyAI(AI):
             update  the consistency stuff based on the new dictionary
             evaluate the worlds over again
             '''
-
             # Merge the dicts, checkDict and splitDict the worlds were just generated for
+
+            updateBlues = currentFrontier.values()
+            newBlues = set()
+            for blueSet in updateBlues:
+                newBlues = newBlues.union(blueSet)
+
+
+            # want to update the value of each key st, the value is consistent with redDict
+            # if v.union(newBlues).intersection(redDict[k]) == redDict[k], then evalDict == True, checkDict[k] = v.union().intersection()
+
+            for k, v in checkDict.items():
+                if evalDict[k] is False and v.union(newBlues).intersection(redDict[k]) == redDict[k]:
+                    evalDict[k] = True
+                    checkDict[k] = v.union(newBlues).intersection(redDict[k])
+
             for k, v in currentFrontier.items():
                 if k not in checkDict:
+                    #print("added", k)
                     checkDict[k] = v
                 else:
                     # Keep and eye out on this part right here
                     # Pretty sure this else should never trigger, but just in case have it
                     checkDict[k].update(v)
-                    print(checkDict[k])
+                    #print("checkDict value", checkDict[k])
                     if checkDict[k] == redDict[k]:
                         evalDict[k] = True
+
+
+
+
+            #for k,v in checkDict.items():
+            #    print(k, v)
+
             '''
             print("merging")
-            print(savedWorlds)
-            print(legalWorlds)
+            print("savedWorlds")
+            for p in savedWorlds:
+                print(p)
             '''
+            '''
+            print("legalWorlds")
+            for p in legalWorlds:
+                print(p)
+            '''
+
             mergedModels = product(savedWorlds, legalWorlds)
             newLegalWorlds = set()
             while True:
@@ -837,19 +912,21 @@ class MyAI(AI):
                     # Neeed the final thing to be (blue, blue, blue, blue, blue, blue) where blue is a tuple of 2 numbers
                     # just do it the feelsbad way of casting it to a tuple after?
 
-                    consistent = True
-                    for j in cFReds:
-                        r, c = j
 
-                        # if evalDict[j] is False and self.effectiveBoard[r][c] <= len(
-                        #        currentFrontier[j].intersection(model)):
-                        if evalDict[j] is False:
+                    consistent = True
+
+                    # checkDict.keys()
+                    # for key, value
+                    #   if evalDict ... self.effectiveBoard ... <= value.intersection()
+                    for k, v in checkDict.items():
+                        r, c = k
+
+                        if evalDict[k] is False and self.effectiveBoard[r][c] >= len(v.intersection(model)):
                             # Legal, split case?
                             # Maybe just let all of this stuff pass and then hopefully catch it at the end
                             # so just check for evalDict[j] is False
                             pass
-                        elif evalDict[j] is True and self.effectiveBoard[r][c] == len(
-                                currentFrontier[j].intersection(model)):
+                        elif evalDict[k] is True and self.effectiveBoard[r][c] == len(v.intersection(model)):
                             # Legal so do nothing, might not eed the eval dict part, but probably doesn't hurt
                             pass
                         else:
@@ -872,6 +949,18 @@ class MyAI(AI):
 
         # At this point, the entire frontier should be merged, and these are all of the consistent worlds, at least so far?
         # try one more consistency check to finish it off?
+
+        #print(len(checkDict), len(redDict))
+
+        '''
+        print("savedWorlds")
+        for p in savedWorlds:
+            if len(p) <=5:
+                print(p)
+        print("eval dict all", all(evalDict.values()))
+        '''
+
+
         retSet = set()
         for model in savedWorlds:
             consistent = True
@@ -883,9 +972,11 @@ class MyAI(AI):
             if consistent is True:
                 retSet.add(model)
 
+        '''
         print("RetSet")
         for i in retSet:
             print(i)
+        '''
 
         '''
         print("redDict")
@@ -895,7 +986,7 @@ class MyAI(AI):
             print("effective board = ", self.effectiveBoard[r][c])
         '''
 
-        return
+        return retSet
 
     def getCSPAction(self):
         '''
@@ -1001,13 +1092,14 @@ class MyAI(AI):
                         # print("left the while loop blueExpand set", blueExpand)
 
         # print(self.mines)
+        '''
         print("RedSets")
         for i in redSets:
             print(i)
         print("BlueSets")
         for i in blueSets:
             print(i)
-
+        '''
         '''
         At this point, the frontiers have been made
         Next steps:
@@ -1152,11 +1244,18 @@ class MyAI(AI):
 
             blueMap = {key: 0 for key in blueSets[t]}
             numConsistent = 0
-
             maxNumMines = min(self.remMines - (len(blueSets) - 1), len(frontier))
+
+            tryNormal = len(frontier) < 10
+
             if len(frontier) > 10:
                 # Build the dictionary {key = red tile: value=blue tiles}
                 # Instead copy the keys and values from red dict from frontier mapping
+                #print("calling _frontierSplit on frontier size", len(frontier))
+
+                if self.short and len(frontier) > 35 and len(self.mines) > 0:
+                    self.move_set.add(self.mines.pop())
+                    return
 
                 redDict = {}
                 for j in redSets[t]:
@@ -1167,44 +1266,55 @@ class MyAI(AI):
                 models = self._frontierSplit(redDict)
                 # Do consistency checking on these models
                 # Or maybe just update blueMap based off of these models
+                if len(models) == 0:
+                    #print("Something went very wrong")
+                    tryNormal = True
+                for i in models:
+                    for key in i:
+                        blueMap[key] += 1
+                numConsistent = len(models)
 
             # print("maxNumMines",maxNumMines)
+            #tryNormal = True
+            #print("normal generation")
+            if tryNormal:
+                #print("Normal model generation")
+                numConsistent = 0
 
-            else:
-                print("Normal model generation")
+                # Probably move this block over into the else statement
+                # and add the code to turn the mine worlds into the bomb locations
+                for i in range(1, maxNumMines + 1):
+                    # print(i)
+                    worlds = combinations(frontier, i)
+                    while True:
+                        try:
+                            model = next(worlds)
+                            # print(model)
+                            '''
+                            At this point, the world has been generated so what needs to be done?
+                            Verify the model is consistent -> for each value in the red set, check that the intersection
+                            of its frontier mapping value and the model has the same len == effective board number
+                            then in the blueTiles dict, increment the value if it is a mine (in the model)
+                            '''
+                            consistent = True
+                            for j in redSets[t]:
+                                r, c = j
+                                if self.effectiveBoard[r][c] != len(frontierMapping[j].intersection(set(model))):
+                                    consistent = False
+                                    break
+
+                            if consistent is True:
+                                numConsistent += 1
+                                for key in model:
+                                    blueMap[key] += 1
+                        except StopIteration:
+                            # print("No more worlds with",i,"mines")
+                            break
 
 
-            # Probably move this block over into the else statement
-            # and add the code to turn the mine worlds into the bomb locations
-            for i in range(1, maxNumMines + 1):
-                # print(i)
-                worlds = combinations(frontier, i)
-                while True:
-                    try:
-                        model = next(worlds)
-                        # print(model)
-                        '''
-                        At this point, the world has been generated so what needs to be done?
-                        Verify the model is consistent -> for each value in the red set, check that the intersection
-                        of its frontier mapping value and the model has the same len == effective board number
-                        then in the blueTiles dict, increment the value if it is a mine (in the model)
-                        '''
-                        consistent = True
-                        for j in redSets[t]:
-                            r, c = j
-                            if self.effectiveBoard[r][c] != len(frontierMapping[j].intersection(set(model))):
-                                consistent = False
-                                break
 
-                        if consistent is True:
-                            print(model)
-                            numConsistent += 1
-                            for key in model:
-                                blueMap[key] += 1
-                    except StopIteration:
-                        # print("No more worlds with",i,"mines")
-                        break
-
+            #if tryNormal:
+                #print("normal generation", numConsistent)
             # print("Numbere of consistent worlds =", numConsistent)
             notAllConsistentCheck = False
             for value in blueMap.values():
@@ -1216,6 +1326,7 @@ class MyAI(AI):
                     break
 
             if notAllConsistentCheck:
+
                 for key, value in blueMap.items():
                     if value == 0:
                         '''
@@ -1269,6 +1380,7 @@ class MyAI(AI):
                     newMove = True
                     self.move_set.add(key)
             if newMove is False:
+                #print("Guessing")
                 self.move_set.add(min(probabilityDict.items(), key=lambda a: a[1])[0])
 
         '''
