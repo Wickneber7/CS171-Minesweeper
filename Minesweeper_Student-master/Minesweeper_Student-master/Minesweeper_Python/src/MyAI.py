@@ -122,7 +122,7 @@ class MyAI(AI):
         self.remaining_moves = set()
 
         # Set this to false to quit early on large worlds
-        self.short = True
+        self.short = False
 
         ###############   Stuf to think about more   ##########################
 
@@ -379,11 +379,7 @@ class MyAI(AI):
             try:
                 self.getCSPAction()
             except:
-                if self.short:
-                    print("\n CSP ISSUE\n")
-                else:
-                    pass
-
+                pass
             for i in range(self.row):
                 for j in range(self.col):
                     if self.effectiveBoard[i][j] is not False and self.effectiveBoard[i][j] == 0:
